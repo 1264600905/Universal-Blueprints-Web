@@ -1,19 +1,63 @@
-import React, { useState } from 'react';
-import { ThumbsUp, Download, Diamond, AlertCircle, Box, Layers, Clock, Tag } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ThumbsUp, Download, AlertCircle, Layers, Clock, Tag } from 'lucide-react';
 import { BlueprintListItem, Language } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { formatBlueprintDate, resolveAssetUrl } from '../utils/blueprintUtils';
+import { getCachedImageObjectUrl, requestImage } from '../utils/imageLoadQueue';
 
 interface BlueprintCardProps {
   blueprint: BlueprintListItem;
   onClick: () => void;
   lang: Language;
+  imagePriority?: number;
 }
 
-const BlueprintCard: React.FC<BlueprintCardProps> = ({ blueprint, onClick, lang }) => {
-  const [imgError, setImgError] = useState(false);
+type ImageStage = 'minimap' | 'main' | 'missing';
+
+const getImageUrl = (blueprint: BlueprintListItem, stage: ImageStage) =>
+  stage === 'main' ? blueprint.imageMain : blueprint.imageMinimap;
+
+const BlueprintCard: React.FC<BlueprintCardProps> = ({ blueprint, onClick, lang, imagePriority = 0 }) => {
+  const [imageStage, setImageStage] = useState<ImageStage>('minimap');
+  const [imageObjectUrl, setImageObjectUrl] = useState<string | null>(() => getCachedImageObjectUrl(blueprint.imageMinimap));
+  const [imageLoading, setImageLoading] = useState(() => !getCachedImageObjectUrl(blueprint.imageMinimap));
+  const [imageMissing, setImageMissing] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const t = TRANSLATIONS[lang];
+
+  useEffect(() => {
+    let active = true;
+    const imageUrl = getImageUrl(blueprint, imageStage);
+    const cachedObjectUrl = getCachedImageObjectUrl(imageUrl);
+
+    setImageMissing(false);
+    setImageObjectUrl(cachedObjectUrl);
+    setImageLoading(!cachedObjectUrl);
+
+    if (cachedObjectUrl) return () => { active = false; };
+
+    const request = requestImage(imageUrl, imagePriority);
+    request.promise
+      .then(objectUrl => {
+        if (!active) return;
+        setImageObjectUrl(objectUrl);
+        setImageLoading(false);
+      })
+      .catch(error => {
+        if (!active || (error instanceof DOMException && error.name === 'AbortError')) return;
+        if (imageStage === 'minimap') {
+          setImageStage('main');
+        } else {
+          setImageLoading(false);
+          setImageMissing(true);
+        }
+      });
+
+    return () => {
+      active = false;
+      request.cancel();
+    };
+  }, [blueprint, imagePriority, imageStage]);
 
   const handleDownload = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -40,7 +84,7 @@ const BlueprintCard: React.FC<BlueprintCardProps> = ({ blueprint, onClick, lang 
 
   return (
     <div 
-      className="group relative flex flex-col bg-rim-card rounded-2xl border border-rim-border hover:border-rim-green/50 transition-all duration-300 cursor-pointer overflow-hidden shadow-lg hover:shadow-xl hover:shadow-rim-green/5 hover:-translate-y-1"
+      className="group relative flex h-full flex-col bg-rim-card rounded-2xl border border-rim-border hover:border-rim-green/50 transition-[border-color,box-shadow,transform] duration-300 cursor-pointer overflow-hidden shadow-lg hover:shadow-xl hover:shadow-rim-green/5 md:hover:-translate-y-0.5"
       onClick={onClick}
     >
       {/* Top Right: Mod Count Badge */}
@@ -55,25 +99,25 @@ const BlueprintCard: React.FC<BlueprintCardProps> = ({ blueprint, onClick, lang 
       {/* Image Area */}
       <div className="relative aspect-[4/3] bg-black/60 overflow-hidden border-b border-rim-border/50">
         <div className="absolute inset-0 shadow-[inset_0_0_30px_rgba(0,0,0,0.8)] z-[1] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-        {imgError ? (
-          <div className="flex flex-col items-center justify-center w-full h-full text-rim-muted/50">
+        {imageMissing ? (
+          <div className="flex flex-col items-center justify-center w-full h-full text-rim-muted/50 bg-gradient-to-br from-white/[0.03] to-transparent">
             <AlertCircle size={32} className="mb-2 opacity-50" />
             <span className="text-xs font-medium">{t.imageMissing}</span>
           </div>
         ) : (
-          <img 
-            src={blueprint.imageMinimap} 
-            alt={blueprint.n}
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-            onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                if (target.src !== blueprint.imageMain) {
-                    target.src = blueprint.imageMain;
-                } else {
-                    setImgError(true);
-                }
-            }}
-          />
+          <>
+            {imageLoading && (
+              <div className="absolute inset-0 overflow-hidden bg-[#11141a]">
+                <div className="absolute inset-y-0 -left-1/2 w-1/2 animate-[shimmer_1.4s_infinite] bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+              </div>
+            )}
+            <img
+              src={imageObjectUrl ?? undefined}
+              alt={blueprint.n}
+              decoding="async"
+              className={`w-full h-full object-cover transition-[opacity,transform] duration-500 ${imageLoading ? 'opacity-0' : 'opacity-100'} group-hover:scale-105`}
+            />
+          </>
         )}
 
         {/* Featured Badge (Bottom Right) */}
@@ -100,7 +144,7 @@ const BlueprintCard: React.FC<BlueprintCardProps> = ({ blueprint, onClick, lang 
       </div>
 
       {/* Info Section */}
-      <div className="p-4 flex flex-col gap-2 flex-grow bg-gradient-to-b from-rim-card to-[#15171d]">
+      <div className="h-[184px] p-4 flex flex-col gap-2 flex-grow bg-gradient-to-b from-rim-card to-[#15171d]">
         {/* Title */}
         <h3 className="text-[15px] font-bold text-white leading-tight line-clamp-1 group-hover:text-rim-green transition-colors" title={blueprint.n}>
           {blueprint.n}

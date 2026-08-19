@@ -1,10 +1,14 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { Filter } from 'lucide-react';
 import BlueprintCard from './components/BlueprintCard';
 import RemoteToolbar from './components/RemoteToolbar';
 import MobileFilterSheet from './components/MobileFilterSheet';
 import BlueprintDetail from './components/BlueprintDetail';
 import BlueprintImageViewer from './components/BlueprintImageViewer';
+import UserAgreementPage from './components/UserAgreementPage';
+import SponsorshipPage from './components/SponsorshipPage';
+import TutorialPage from './components/TutorialPage';
+import { useVirtualGrid } from './hooks/useVirtualGrid';
 import { useBlueprintData } from './hooks/useBlueprintData';
 import { useBlueprintDetail } from './hooks/useBlueprintDetail';
 import { BlueprintListItem, SortOption, TimeFilterOption, Language, CategoryCount, FilterCounts } from './types';
@@ -23,6 +27,11 @@ const App: React.FC = () => {
   const [selectedBlueprint, setSelectedBlueprint] = useState<BlueprintListItem | null>(null);
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+  const [activePage, setActivePage] = useState<'library' | 'agreement' | 'sponsorship' | 'tutorial'>(() => {
+    const route = window.location.hash.replace(/^#\//, '');
+    return route === 'agreement' || route === 'sponsorship' || route === 'tutorial' ? route : 'library';
+  });
+  const gridContainerRef = useRef<HTMLDivElement>(null);
 
   const t = TRANSLATIONS[lang];
 
@@ -33,6 +42,24 @@ const App: React.FC = () => {
   }, []);
 
   const toggleLanguage = () => setLang(prev => prev === 'en' ? 'cn' : 'en');
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const route = window.location.hash.replace(/^#\//, '');
+      setActivePage(route === 'agreement' || route === 'sponsorship' || route === 'tutorial' ? route : 'library');
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  const openPage = (page: 'agreement' | 'sponsorship' | 'tutorial') => {
+    window.location.hash = `/${page}`;
+  };
+
+  const closePage = () => {
+    window.location.hash = '';
+    setActivePage('library');
+  };
 
   // --- Data Layer ---
   const { blueprints, basePath, loading, error, refresh } = useBlueprintData();
@@ -169,6 +196,34 @@ const App: React.FC = () => {
 
   }, [blueprints, searchTerm, selectedCategory, timeRange, sortBy]);
 
+  const virtualGrid = useVirtualGrid({
+    itemCount: filteredAndSortedBlueprints.length,
+    containerRef: gridContainerRef,
+    enabled: activePage === 'library',
+    minColumnWidth: 160,
+    maxColumnCount: 6,
+    gap: 16,
+    cardContentHeight: 184,
+    overscanRows: 1,
+  });
+
+  const virtualBlueprints = filteredAndSortedBlueprints.slice(
+    virtualGrid.startIndex,
+    virtualGrid.endIndex,
+  );
+
+  if (activePage === 'agreement') {
+    return <UserAgreementPage lang={lang} toggleLanguage={toggleLanguage} onBack={closePage} />;
+  }
+
+  if (activePage === 'sponsorship') {
+    return <SponsorshipPage lang={lang} toggleLanguage={toggleLanguage} onBack={closePage} />;
+  }
+
+  if (activePage === 'tutorial') {
+    return <TutorialPage lang={lang} toggleLanguage={toggleLanguage} onBack={closePage} />;
+  }
+
   return (
     <div className="min-h-screen bg-rim-dark font-sans text-rim-text flex flex-col">
       <RemoteToolbar 
@@ -182,15 +237,36 @@ const App: React.FC = () => {
         filterCounts={filterCounts}
         loading={loading} refresh={refresh}
         onOpenMobileFilter={() => setIsMobileFilterOpen(true)}
+        onOpenAgreement={() => openPage('agreement')}
+        onOpenSponsorship={() => openPage('sponsorship')}
+        onOpenTutorial={() => openPage('tutorial')}
       />
 
-      <main className="flex-grow p-4 md:p-6 overflow-y-auto">
+      <main className="flex-grow p-4 md:p-6">
         <div className="max-w-[1600px] mx-auto">
             {error && (
                 <div className="bg-red-900/20 border border-red-500/50 text-red-200 p-4 rounded mb-6 text-center">
                     <p className="font-bold">{t.error}</p>
                     <p className="text-sm opacity-80">{error}</p>
                 </div>
+            )}
+
+            {loading && blueprints.length === 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4" aria-label={t.refreshing}>
+                {Array.from({ length: 12 }).map((_, index) => (
+                  <div key={index} className="overflow-hidden rounded-2xl border border-rim-border bg-rim-card shadow-lg">
+                    <div className="aspect-[4/3] bg-[#11141a] relative overflow-hidden">
+                      <div className="absolute inset-y-0 -left-1/2 w-1/2 animate-[shimmer_1.4s_infinite] bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+                    </div>
+                    <div className="h-[184px] p-4 space-y-3">
+                      <div className="h-4 w-3/4 rounded bg-white/[0.07]" />
+                      <div className="h-3 w-1/2 rounded bg-white/[0.05]" />
+                      <div className="h-3 w-2/3 rounded bg-white/[0.05]" />
+                      <div className="mt-8 h-px bg-white/[0.05]" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
 
             {!loading && !error && filteredAndSortedBlueprints.length === 0 && (
@@ -200,22 +276,51 @@ const App: React.FC = () => {
                 </div>
             )}
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-                {filteredAndSortedBlueprints.map(bp => (
-                    <BlueprintCard 
-                        key={bp.id} 
-                        blueprint={bp} 
-                        onClick={() => setSelectedBlueprint(bp)} 
+            {!loading && !error && filteredAndSortedBlueprints.length > 0 && (
+              <>
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-xs text-rim-muted">
+                  <span>{t.showingResults.replace('{visible}', String(virtualBlueprints.length)).replace('{total}', String(filteredAndSortedBlueprints.length))}</span>
+                  <span className="text-rim-green/70">{t.virtualizedHint}</span>
+                </div>
+                <div
+                  ref={gridContainerRef}
+                  className="relative w-full"
+                  style={{ height: virtualGrid.totalHeight }}
+                >
+                  <div
+                    className="absolute left-0 right-0 top-0 grid items-stretch"
+                    style={{
+                      transform: `translateY(${virtualGrid.offsetTop}px)`,
+                      gridTemplateColumns: `repeat(${virtualGrid.columnCount}, minmax(0, 1fr))`,
+                      gap: 16,
+                    }}
+                  >
+                    {virtualBlueprints.map((bp, index) => (
+                      <BlueprintCard
+                        key={bp.id}
+                        blueprint={bp}
+                        onClick={() => setSelectedBlueprint(bp)}
                         lang={lang}
-                    />
-                ))}
-            </div>
+                        imagePriority={Math.abs(index - Math.floor(virtualBlueprints.length / 2))}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
         </div>
       </main>
 
       <footer className="bg-[#111] border-t border-rim-border py-4 text-center text-xs text-rim-muted">
         <p>{t.footer} &copy; {new Date().getFullYear()}</p>
         <p className="mt-1 opacity-50">{t.unofficial}</p>
+        <div className="mt-2 flex items-center justify-center gap-3">
+          <button onClick={() => openPage('agreement')} className="text-rim-green/70 hover:text-rim-green underline underline-offset-4 transition-colors">{t.agreement}</button>
+          <span className="text-white/20">·</span>
+          <button onClick={() => openPage('tutorial')} className="text-rim-green/70 hover:text-rim-green underline underline-offset-4 transition-colors">{t.tutorial}</button>
+          <span className="text-white/20">·</span>
+          <button onClick={() => openPage('sponsorship')} className="text-rim-orange/80 hover:text-rim-orange underline underline-offset-4 transition-colors">{t.sponsorship}</button>
+        </div>
       </footer>
 
       <MobileFilterSheet 

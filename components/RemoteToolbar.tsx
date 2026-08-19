@@ -2,7 +2,7 @@ import React from 'react';
 import { Search, RotateCw, Settings, Globe, Filter } from 'lucide-react';
 import { SortOption, TimeFilterOption, Language, CategoryCount, FilterCounts } from '../types';
 import { getDisplayCategoryName } from '../utils/blueprintUtils';
-import { TRANSLATIONS } from '../constants';
+import { APP_VERSION, TRANSLATIONS } from '../constants';
 
 interface RemoteToolbarProps {
   lang: Language;
@@ -20,13 +20,16 @@ interface RemoteToolbarProps {
   loading: boolean;
   refresh: () => void;
   onOpenMobileFilter: () => void;
+  onOpenAgreement: () => void;
+  onOpenSponsorship: () => void;
+  onOpenTutorial: () => void;
 }
 
 const RemoteToolbar: React.FC<RemoteToolbarProps> = ({
   lang, toggleLanguage, searchTerm, setSearchTerm,
   sortBy, setSortBy, timeRange, setTimeRange,
   selectedCategory, setSelectedCategory, categories, filterCounts,
-  loading, refresh, onOpenMobileFilter
+  loading, refresh, onOpenMobileFilter, onOpenAgreement, onOpenSponsorship, onOpenTutorial
 }) => {
   const t = TRANSLATIONS[lang];
 
@@ -40,19 +43,39 @@ const RemoteToolbar: React.FC<RemoteToolbarProps> = ({
               </div>
               <span className="bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">{t.title}</span>
               <span className="text-[10px] font-mono text-rim-green/80 ml-2 bg-rim-green/10 px-2 py-0.5 rounded border border-rim-green/20">
-                  v1.2
+                  v{APP_VERSION}
               </span>
           </h1>
 
-          {/* Language Switch */}
-          <button 
+          {/* Agreement & Language Switch */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onOpenTutorial}
+              className="hidden sm:inline-flex items-center rounded-lg border border-white/5 bg-black/30 px-3 py-1.5 text-xs font-semibold text-rim-muted hover:border-rim-green/30 hover:text-white transition-all"
+            >
+              {t.tutorial}
+            </button>
+            <button
+              onClick={onOpenSponsorship}
+              className="hidden sm:inline-flex items-center rounded-lg border border-rim-orange/20 bg-rim-orange/10 px-3 py-1.5 text-xs font-semibold text-rim-orange hover:bg-rim-orange/20 transition-all"
+            >
+              {t.sponsorship}
+            </button>
+            <button
+              onClick={onOpenAgreement}
+              className="hidden sm:inline-flex items-center rounded-lg border border-white/5 bg-black/30 px-3 py-1.5 text-xs font-semibold text-rim-muted hover:border-rim-green/30 hover:text-white transition-all"
+            >
+              {t.agreement}
+            </button>
+            <button
               onClick={toggleLanguage}
               className="flex items-center gap-2 bg-black/40 hover:bg-rim-border text-rim-muted hover:text-white px-3 py-1.5 rounded-lg text-xs transition-all border border-white/5 hover:border-white/10"
               title="Switch Language / 切换语言"
           >
               <Globe size={14} className={lang === 'cn' ? 'text-rim-orange' : 'text-blue-400'} />
               <span className="font-bold">{lang === 'en' ? 'English' : '中文'}</span>
-          </button>
+            </button>
+          </div>
       </div>
 
       {/* Control Bar: Search & Filters */}
@@ -151,6 +174,27 @@ const RemoteToolbar: React.FC<RemoteToolbarProps> = ({
                 >
                     <Filter size={16} className="text-rim-orange" />
                     {t.filters}
+                </button>
+                <button
+                    onClick={onOpenTutorial}
+                    className="flex items-center justify-center bg-rim-dark/50 hover:bg-rim-border text-rim-muted hover:text-white px-3 py-2 rounded-lg border border-rim-border text-sm transition-colors"
+                    title={t.tutorial}
+                >
+                    <span>{t.tutorial}</span>
+                </button>
+                <button
+                    onClick={onOpenSponsorship}
+                    className="flex items-center justify-center bg-rim-orange/10 hover:bg-rim-orange/20 text-rim-orange px-3 py-2 rounded-lg border border-rim-orange/20 text-sm transition-colors"
+                    title={t.sponsorship}
+                >
+                    <span>{t.sponsorship}</span>
+                </button>
+                <button
+                    onClick={onOpenAgreement}
+                    className="flex items-center justify-center bg-rim-dark/50 hover:bg-rim-border text-rim-muted hover:text-white px-3 py-2 rounded-lg border border-rim-border text-sm transition-colors"
+                    title={t.agreement}
+                >
+                    <span className="sm:hidden">{t.agreement}</span>
                 </button>
                 <button 
                     onClick={refresh}

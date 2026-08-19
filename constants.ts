@@ -7,6 +7,12 @@ export const GITHUB_PAGES_PROJECT_NAME = 'Universal-Blueprints-Web';
 // @ts-ignore
 export const ASSET_BASE_URL = import.meta.env?.BASE_URL || '/';
 export const XML_FETCH_TIMEOUT_MS = 10000;
+export const APP_VERSION = '1.3';
+
+export const resolvePublicAssetUrl = (path: string): string => {
+  const cleanPath = path.replace(/^\//, '');
+  return `${ASSET_BASE_URL}${cleanPath}`;
+};
 
 export const TRANSLATIONS = {
   en: {
@@ -57,7 +63,12 @@ export const TRANSLATIONS = {
     blueprintId: "Blueprint ID",
     loadingDetails: "Loading details...",
     failedToLoad: "Failed to load details",
-    noDescription: "No description provided."
+    noDescription: "No description provided.",
+    agreement: "User Agreement",
+    tutorial: "Tutorial",
+    sponsorship: "Support",
+    showingResults: "Showing {visible} nearby cards of {total} results",
+    virtualizedHint: "Images load only near your current scroll position."
   },
   cn: {
     title: "RimWorld 蓝图库",
@@ -107,6 +118,11 @@ export const TRANSLATIONS = {
     blueprintId: "蓝图 ID",
     loadingDetails: "正在加载详情...",
     failedToLoad: "加载详情失败",
-    noDescription: "暂无描述。"
+    noDescription: "暂无描述。",
+    agreement: "用户协议",
+    tutorial: "使用教程",
+    sponsorship: "赞助支持",
+    showingResults: "当前渲染附近 {visible} 张，共 {total} 个结果",
+    virtualizedHint: "图片仅在接近当前滚动位置时加载。"
   }
 };
